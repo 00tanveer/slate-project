@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import { Editor } from 'slate-react';
 import { Value } from 'slate';
 import { isKeyHotkey } from 'is-hotkey';
+import { ImagePlugin, ImageButton } from '@slate-editor/image-plugin';
 
 import { Button } from '../components/toolbar/Button';
 import { Icon } from '../components/toolbar/Icon';
@@ -12,6 +13,10 @@ const isBoldHotkey = isKeyHotkey('mod+b')
 const isItalicHotkey = isKeyHotkey('mod+i')
 const isUnderlinedHotkey = isKeyHotkey('mod+u')
 const isCodeHotkey = isKeyHotkey('mod+`')
+
+const plugins = [
+  ImagePlugin()
+]
 
 const initialValue = Value.fromJSON({
   document: {
@@ -124,6 +129,8 @@ class App extends Component {
         return <li {...attributes}>{children}</li>
       case 'numbered-list':
         return <ol {...attributes}>{children}</ol>
+      case 'image':
+        return <img {...attributes}>{children}</img>
       default:
         return next()
     }

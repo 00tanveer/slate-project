@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@slate-editor/image-plugin": "^5.1.0",
     "immutable": "^4.0.0-rc.12",
     "is-hotkey": "^0.1.4",
     "react": "^16.7.0",
