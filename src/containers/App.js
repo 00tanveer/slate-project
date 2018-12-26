@@ -81,7 +81,8 @@ class App extends Component {
   }
   onChange = ({ value }) => {
     this.setState({ value }, () => {
-      //console.log(JSON.stringify(value.toJSON()));
+    //console.log(JSON.stringify(value.toJSON()));
+    console.log(value.toJSON());
     })
   }
   onKeyDown = (event, editor, next) => {
@@ -199,6 +200,7 @@ class App extends Component {
     const { document } = value
 
     // Handle everything but list buttons.
+    console.log(type);
     if (type != 'bulleted-list' && type != 'numbered-list') {
       const isActive = this.hasBlock(type)
       const isList = this.hasBlock('list-item')
@@ -214,20 +216,26 @@ class App extends Component {
     } else {
       // Handle the extra wrapping required for list buttons.
       const isList = this.hasBlock('list-item')
+      console.log('isList, ',isList);
       const isType = value.blocks.some(block => {
         return !!document.getClosest(block.key, parent => parent.type == type)
       })
-
+      console.log('isType, ', isType);
+      //console.log(document.nodes);
       if (isList && isType) {
         editor
-          .setBlocks(DEFAULT_NODE)
-          .unwrapBlock('bulleted-list')
-          .unwrapBlock('numbered-list')
-      } else if (isList) {
-        editor
+          //.setBlocks(DEFAULT_NODE)
+          //.unwrapBlock('bulleted-list')
           .unwrapBlock(
             type == 'bulleted-list' ? 'numbered-list' : 'bulleted-list'
           )
+          //.unwrapBlock('numbered-list')
+      } else if (isList) {
+        console.log('HERERE');
+        editor
+          // .unwrapBlock(
+          //   type == 'bulleted-list' ? 'numbered-list' : 'bulleted-list'
+          // )
           .wrapBlock(type)
       } else {
         editor.setBlocks('list-item').wrapBlock(type)
