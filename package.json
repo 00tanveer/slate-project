@@ -6,6 +6,7 @@
     "@slate-editor/image-plugin": "^5.1.0",
     "immutable": "^4.0.0-rc.12",
     "is-hotkey": "^0.1.4",
+    "is-url": "^1.2.4",
     "react": "^16.7.0",
     "react-dom": "^16.7.0",
     "react-router-dom": "^4.3.1",
