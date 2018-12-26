@@ -9,10 +9,12 @@ import { Icon } from '../components/toolbar/Icon';
 import { Toolbar } from '../components/toolbar/Toolbar';
 
 const DEFAULT_NODE = 'paragraph';
-const isBoldHotkey = isKeyHotkey('mod+b')
-const isItalicHotkey = isKeyHotkey('mod+i')
-const isUnderlinedHotkey = isKeyHotkey('mod+u')
-const isCodeHotkey = isKeyHotkey('mod+`')
+const isBoldHotkey = isKeyHotkey('mod+b');
+const isItalicHotkey = isKeyHotkey('mod+i');
+const isUnderlinedHotkey = isKeyHotkey('mod+u');
+const isCodeHotkey = isKeyHotkey('mod+`');
+const isTabHotkey = isKeyHotkey('tab');
+const isShiftTabHotkey = isKeyHotkey('shift+tab');
 
 const Image = styled.img`
   display: block;
@@ -86,7 +88,7 @@ class App extends Component {
     })
   }
   onKeyDown = (event, editor, next) => {
-    let mark;
+    let mark = 'none';
 
     if (isBoldHotkey(event)) {
       mark = 'bold';
@@ -96,12 +98,18 @@ class App extends Component {
       mark = 'underlined';
     } else if (isCodeHotkey(event)) {
       mark = 'code';
+    } else if (isTabHotkey(event)) {
+      editor.setBlocks('list-item').wrapBlock('bulleted-list');
+    } else if (isShiftTabHotkey(event)) {
+      editor.unwrapBlock('bulleted-list');
     } else {
       return next();
     }
 
-    event.preventDefault()
-    editor.toggleMark(mark)
+    event.preventDefault();
+    if (mark !== 'none') {
+      editor.toggleMark(mark);
+    }
   }
   hasMark = type => {
     const { value } = this.state
@@ -200,6 +208,7 @@ class App extends Component {
     const { document } = value
 
     // Handle everything but list buttons.
+    document.getClosest()
     console.log(type);
     if (type != 'bulleted-list' && type != 'numbered-list') {
       const isActive = this.hasBlock(type)
@@ -218,10 +227,11 @@ class App extends Component {
       const isList = this.hasBlock('list-item')
       console.log('isList, ',isList);
       const isType = value.blocks.some(block => {
+        console.log(block);
         return !!document.getClosest(block.key, parent => parent.type == type)
       })
       console.log('isType, ', isType);
-      //console.log(document.nodes);
+      console.log(document.getBlocksByType('bulleted-list').toJSON());
       if (isList && isType) {
         editor
           //.setBlocks(DEFAULT_NODE)
