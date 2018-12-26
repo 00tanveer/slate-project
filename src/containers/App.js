@@ -1,8 +1,8 @@
 import React, { Component } from 'react';
+import styled from 'styled-components';
 import { Editor } from 'slate-react';
-import { Value } from 'slate';
+import { Block, Value } from 'slate';
 import { isKeyHotkey } from 'is-hotkey';
-import { ImagePlugin, ImageButton } from '@slate-editor/image-plugin';
 
 import { Button } from '../components/toolbar/Button';
 import { Icon } from '../components/toolbar/Icon';
@@ -14,10 +14,12 @@ const isItalicHotkey = isKeyHotkey('mod+i')
 const isUnderlinedHotkey = isKeyHotkey('mod+u')
 const isCodeHotkey = isKeyHotkey('mod+`')
 
-const plugins = [
-  ImagePlugin()
-]
-
+const Image = styled.img`
+  display: block;
+  max-width: 100%;
+  max-height: 20em;
+  box-shadow: ${props => (props.selected ? '0 0 0 2px blue;' : 'none')};
+`
 const initialValue = Value.fromJSON({
   document: {
     nodes: [
@@ -39,6 +41,37 @@ const initialValue = Value.fromJSON({
   },
 });
 
+function insertImage(editor, src, target) {
+  if (target) {
+    editor.select(target)
+  }
+
+  editor.insertBlock({
+    type: 'image',
+    data: { src },
+  })
+}
+
+const schema = {
+  document: {
+    last: { type: 'paragraph' },
+    normalize: (editor, { code, node, child }) => {
+      switch (code) {
+        case 'last_child_type_invalid': {
+          const paragraph = Block.create('paragraph')
+          return editor.insertNodeByKey(node.key, node.nodes.size, paragraph)
+        }
+      }
+    },
+  },
+  blocks: {
+    image: {
+      isVoid: true,
+    },
+  },
+}
+
+
 class App extends Component {
   constructor(props) {
     super(props);
@@ -48,7 +81,7 @@ class App extends Component {
   }
   onChange = ({ value }) => {
     this.setState({ value }, () => {
-      console.log(JSON.stringify(value.toJSON()));
+      //console.log(JSON.stringify(value.toJSON()));
     })
   }
   onKeyDown = (event, editor, next) => {
@@ -114,7 +147,7 @@ class App extends Component {
     )
   }
   renderNode = (props, editor, next) => {
-    const { attributes, children, node } = props
+    const { attributes, children, node, isFocused } = props
 
     switch (node.type) {
       case 'block-quote':
@@ -129,8 +162,10 @@ class App extends Component {
         return <li {...attributes}>{children}</li>
       case 'numbered-list':
         return <ol {...attributes}>{children}</ol>
-      case 'image':
-        return <img {...attributes}>{children}</img>
+      case 'image': {
+        const src = node.data.get('src')
+        return <Image src={src} selected={isFocused} {...attributes} />
+      }
       default:
         return next()
     }
@@ -155,13 +190,6 @@ class App extends Component {
     event.preventDefault()
     this.editor.toggleMark(type)
   }
-
-  /**
-   * When a block button is clicked, toggle the block type.
-   *
-   * @param {Event} event
-   * @param {String} type
-   */
 
   onClickBlock = (event, type) => {
     event.preventDefault()
@@ -207,6 +235,26 @@ class App extends Component {
     }
   }
 
+  onClickImage = event => {
+    event.preventDefault();
+    const input = document.createElement("input");
+    input.setAttribute("type", "file");
+    input.click();
+    input.onchange = () => {
+      const file = input.files[0];
+      const [mime] = file.type.split('/');
+      if (mime !== 'image') {
+        alert("Choose a valid image file.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.addEventListener('load', () => {
+        this.editor.command(insertImage, reader.result);
+      });
+      reader.readAsDataURL(file);
+    };
+  }
+
   render() {
     return (
     <div>
@@ -220,6 +268,9 @@ class App extends Component {
         {this.renderBlockButton('block-quote', 'format_quote')}
         {this.renderBlockButton('numbered-list', 'format_list_numbered')}
         {this.renderBlockButton('bulleted-list', 'format_list_bulleted')}
+        <Button onMouseDown={this.onClickImage}>
+            <Icon>image</Icon>
+          </Button>
       </Toolbar>
       <Editor 
         spellCheck
@@ -227,6 +278,7 @@ class App extends Component {
         placeholder="Enter some rich text..."
         ref={this.ref}
         value={this.state.value} 
+        schema={schema}
         onChange={this.onChange} 
         onKeyDown={this.onKeyDown}
         renderNode={this.renderNode}
