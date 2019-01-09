@@ -3,16 +3,19 @@ import styled from 'styled-components';
 import { Editor } from 'slate-react';
 import { Block, Value } from 'slate';
 import { isKeyHotkey } from 'is-hotkey';
+import Html from 'slate-html-serializer';
 
 import { Button } from '../components/toolbar/Button';
 import { Icon } from '../components/toolbar/Icon';
 import { Toolbar } from '../components/toolbar/Toolbar';
 
 const DEFAULT_NODE = 'paragraph';
-const isBoldHotkey = isKeyHotkey('mod+b')
-const isItalicHotkey = isKeyHotkey('mod+i')
-const isUnderlinedHotkey = isKeyHotkey('mod+u')
-const isCodeHotkey = isKeyHotkey('mod+`')
+const isBoldHotkey = isKeyHotkey('mod+b');
+const isItalicHotkey = isKeyHotkey('mod+i');
+const isUnderlinedHotkey = isKeyHotkey('mod+u');
+const isCodeHotkey = isKeyHotkey('mod+`');
+const isTabHotkey = isKeyHotkey('tab');
+const isShiftTabHotkey = isKeyHotkey('shift+tab');
 
 const Image = styled.img`
   display: block;
@@ -20,26 +23,26 @@ const Image = styled.img`
   max-height: 20em;
   box-shadow: ${props => (props.selected ? '0 0 0 2px blue;' : 'none')};
 `
-const initialValue = Value.fromJSON({
-  document: {
-    nodes: [
-      {
-        object: 'block',
-        type: 'paragraph',
-        nodes: [
-          {
-            object: 'text',
-            leaves: [
-              {
-                text: 'A line of text in a paragraph.',
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-});
+// const initialValue = Value.fromJSON({
+//   document: {
+//     nodes: [
+//       {
+//         object: 'block',
+//         type: 'paragraph',
+//         nodes: [
+//           {
+//             object: 'text',
+//             leaves: [
+//               {
+//                 text: 'A line of text in a paragraph.',
+//               },
+//             ],
+//           },
+//         ],
+//       },
+//     ],
+//   },
+// });
 
 function insertImage(editor, src, target) {
   if (target) {
@@ -71,22 +74,109 @@ const schema = {
   },
 }
 
+const BLOCK_TAGS = {
+  blockquote: 'block-quote',
+  p: 'paragraph',
+  pre: 'code',
+  img: 'image'
+}
+// Add a dictionary of mark tags.
+const MARK_TAGS = {
+  em: 'italic',
+  strong: 'bold',
+  u: 'underlined',
+  code: 'code'
+}
+const rules = [
+  {
+    deserialize(el, next) {
+      const type = BLOCK_TAGS[el.tagName.toLowerCase()]
+      if (type) {
+        return {
+          object: 'block',
+          type: type,
+          data: {
+            className: el.getAttribute('class'),
+          },
+          nodes: next(el.childNodes),
+        }
+      }
+    },
+    serialize(obj, children) {
+      if (obj.object == 'block') {
+        switch (obj.type) {
+          case 'code':
+            return (
+              <pre>
+                <code>{children}</code>
+              </pre>
+            )
+          case 'paragraph':
+            return <p className={obj.data.get('className')}>{children}</p>
+          case 'block-quote':
+            return <blockquote>{children}</blockquote>
+          case 'image':
+            console.log(obj);
+            console.log(obj.data.get('src'));
+            return <img src={obj.data.get('src')}/>
+        }
+      }
+    },
+  },
+  // Add a new rule that handles marks...
+  {
+    deserialize(el, next) {
+      const type = MARK_TAGS[el.tagName.toLowerCase()]
+      if (type) {
+        return {
+          object: 'mark',
+          type: type,
+          nodes: next(el.childNodes),
+        }
+      }
+    },
+    serialize(obj, children) {
+      if (obj.object == 'mark') {
+        switch (obj.type) {
+          case 'bold':
+            return <strong>{children}</strong>
+          case 'italic':
+            return <em>{children}</em>
+          case 'underlined':
+            return <u>{children}</u>
+          case 'code': 
+            return <code>{children}</code>
+        }
+      }
+    },
+  },
+]
+
+const html = new Html({rules});
+const initialValue = localStorage.getItem('content') || '<p></p>';
+
 
 class App extends Component {
   constructor(props) {
     super(props);
     this.state = {
-      value: initialValue
+      value: html.deserialize(initialValue)
     }
+    console.log(html.deserialize(initialValue).toJSON());
   }
   onChange = ({ value }) => {
+    if (value.document != this.state.value.document) {
+      const string = html.serialize(value)
+      localStorage.setItem('content', string)
+    }
+
     this.setState({ value }, () => {
     //console.log(JSON.stringify(value.toJSON()));
-    console.log(value.toJSON());
+    
     })
   }
   onKeyDown = (event, editor, next) => {
-    let mark;
+    let mark = 'none';
 
     if (isBoldHotkey(event)) {
       mark = 'bold';
@@ -96,12 +186,18 @@ class App extends Component {
       mark = 'underlined';
     } else if (isCodeHotkey(event)) {
       mark = 'code';
+    } else if (isTabHotkey(event)) {
+      editor.setBlocks('list-item').wrapBlock('bulleted-list');
+    } else if (isShiftTabHotkey(event)) {
+      editor.unwrapBlock('bulleted-list');
     } else {
       return next();
     }
 
-    event.preventDefault()
-    editor.toggleMark(mark)
+    event.preventDefault();
+    if (mark !== 'none') {
+      editor.toggleMark(mark);
+    }
   }
   hasMark = type => {
     const { value } = this.state
@@ -200,6 +296,7 @@ class App extends Component {
     const { document } = value
 
     // Handle everything but list buttons.
+    document.getClosest()
     console.log(type);
     if (type != 'bulleted-list' && type != 'numbered-list') {
       const isActive = this.hasBlock(type)
@@ -218,10 +315,11 @@ class App extends Component {
       const isList = this.hasBlock('list-item')
       console.log('isList, ',isList);
       const isType = value.blocks.some(block => {
+        console.log(block);
         return !!document.getClosest(block.key, parent => parent.type == type)
       })
       console.log('isType, ', isType);
-      //console.log(document.nodes);
+      console.log(document.getBlocksByType('bulleted-list').toJSON());
       if (isList && isType) {
         editor
           //.setBlocks(DEFAULT_NODE)
